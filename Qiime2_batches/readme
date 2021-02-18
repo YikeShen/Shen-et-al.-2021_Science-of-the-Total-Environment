@@ -9,3 +9,4 @@ Need some sort of Supercomputing capacity (More memory requirement than local co
 This pipeline was run in 11/21/2019. 
 The version is a little different to today (02/18/2021), please contact me if you would like to get the closest run I did for another study with Qiime2 newer version and newer classifier
 I kept this as raw input file for all my analyses. 
+OTU table output is the same for all compartment batches, the only differences are the diversity (alpha and beta diversity).
