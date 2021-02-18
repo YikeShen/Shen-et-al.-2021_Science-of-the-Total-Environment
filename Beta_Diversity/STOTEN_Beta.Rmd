@@ -1,0 +1,203 @@
+title: "STOTEN_Beta"
+# Beta Diversity Calculation and Graphics
+#Please download the RMD file and run each chunk separately
+
+#load packages
+```{r}
+library("rmarkdown")
+library(tidyr)
+library(tidyverse)
+library(dplyr)
+library(readxl)
+library(ggplot2)
+library(pheatmap) 
+library(vegan)
+library(RColorBrewer)
+library(permute)
+library(lattice)
+library(labdsv)
+library(dendextend)
+library(ade4)
+library(phyloseq)
+library("ape")
+library("plyr")
+library(scales)
+library(Hmisc)
+library(corrplot)
+library(miscTools)
+library(gtools)
+library("ggpubr")
+
+#R.version.string
+```
+
+setwd("/Users/yikeshen/Desktop/Salmonella_Paper")
+
+############## PLEASE RUN plants and soil sample phyloseq separately!######### 
+#Processing data, turn into physeq object, plants (Shoots&Roots) only
+#Figure3 left panel, Figure S3 left panel
+
+```{r}
+rm(list=ls())
+setwd("/Users/yikeshen/Desktop/Salmonella_Paper")
+OTUtableraw <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "OTU_all")
+OTUtable <- OTUtableraw %>% filter(!grepl("Archaea",OTUID)) %>% filter(!grepl("Eukaryota",OTUID))
+OTU <- OTUtable %>% dplyr::select(-"OTUID")
+ROWNAMES <- OTU$FeatureID 
+OTU = OTU[,mixedsort(colnames(OTU))]
+
+OTU <- OTU %>% select(-c(S1:S48))#remove soil samples for ordination
+OTU <- OTU %>% select(-P1,-P3)#didn't amplify, remove
+row.names(OTU) <- OTU$FeatureID 
+OTU <- OTU %>% select(-FeatureID)
+OTU[is.na(OTU)] <- 0
+OTU <- OTU %>% as.matrix()
+row.names(OTU) <- ROWNAMES
+
+Taxonomy <- OTUtable %>% 
+  dplyr::select("OTUID")
+
+Taxonomy <- Taxonomy %>%
+  separate("OTUID",into=c("Domain","Phylum","Class","Order","Family","Genus","Species"),sep=";")
+
+TAX <- Taxonomy %>% as.data.frame() %>% 
+  mutate(Domain=gsub("D_0__","",Domain)) %>% 
+  mutate(Phylum=gsub("D_1__","",Phylum)) %>% 
+  mutate(Class=gsub("D_2__","",Class)) %>% 
+  mutate(Order=gsub("D_3__","",Order)) %>% 
+  mutate(Family=gsub("D_4__","",Family)) %>% 
+  mutate(Genus=gsub("D_5__","",Genus)) %>% 
+  mutate(Species=gsub("D_6__","",Species)) %>% 
+  as.matrix() %>% as.data.frame()
+
+TAX[is.na(TAX)] <- NA
+TAX <- apply(TAX, 2, function(x) gsub("^$|^ $", NA, x))
+TAX <- TAX %>% as.matrix()
+row.names(TAX) <- ROWNAMES
+
+map <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "ENV")
+SAMPLEIDROWNAMES <- map$SampleID
+map <- map %>% as.matrix() %>% as.data.frame()
+row.names(map) <- SAMPLEIDROWNAMES
+ROANAMESLISTSAMPLESID <- row.names(map)
+
+OTU=otu_table(OTU,taxa_are_rows = TRUE)
+rownames(TAX) <- row.names(OTU)
+TAX=tax_table(TAX)
+MAP <-  sample_data(map)
+physeq = merge_phyloseq(OTU, TAX, MAP)
+Tree=rtree(ntaxa(physeq),rooted=TRUE,tip.label = taxa_names(physeq))
+
+physeq = phyloseq(OTU, TAX, MAP,Tree)
+
+```
+
+#Beta Diversity PCoA Weighted Unifrac, plant samples
+#Figure 3 left panel
+```{r}
+theme_set(theme_bw())
+physeq.ord_unifrac = ordinate(physeq, "PCoA", "unifrac", weighted=TRUE)
+p1 <- plot_ordination(physeq, physeq.ord_unifrac, type="SampleID", color="Antibiotics", shape="Compartment") 
+print(p1)
+p1+geom_point(size=5, alpha=0.75)+labs(x="PCoA1 [91.9%]", y="PCoA2 [2.7%]")+ggtitle("PCoA on Weighted Unifrac Distance")+theme(plot.title = element_text(hjust = 0.5))+theme(legend.position="right",axis.text=element_text(size=16),axis.title=element_text(size=16),plot.title = element_text(size=22, hjust=0.5),text = element_text(size = 16))+scale_color_manual(breaks = c("NO", "YES"),
+                        values=c("blue", "red"))
+
+#slightly different variation explained in first two axes from 2021 validation and 2020 run. Does not influence results
+#p value report from Qiime2 run
+
+```
+
+#Beta diversity colored on dates - plant samples
+#FigureS3 left panel
+```{r}
+theme_set(theme_bw())
+physeq.ord_unifrac = ordinate(physeq, "PCoA", "unifrac", weighted=TRUE)
+p2 <- plot_ordination(physeq, physeq.ord_unifrac, type="SampleID", color="Time", shape="Compartment") 
+print(p2)
+p2+geom_point(size=5, alpha=0.75)+labs(x="PCoA1 [92.3%]", y="PCoA2 [2.6%]")+ggtitle("PCoA on Weighted Unifrac Distance")+theme(plot.title = element_text(hjust = 0.5))+theme(legend.position="right",axis.text=element_text(size=16),axis.title=element_text(size=16),plot.title = element_text(size=22, hjust=0.5),text = element_text(size = 16))+scale_fill_brewer(palette = "jco")
+#slightly different variation explained in first two axes from 2021 validation and 2020 run. Does not influence results
+#p value report from Qiime2 run
+```
+
+
+##Processing data, turn into physeq object, beta diversity for soil samples (Rhizosphere and soil samples)
+#Figure 3 right panel
+#Figure S3 right panel
+```{r}
+rm(list=ls())
+setwd("/Users/yikeshen/Desktop/Salmonella_Paper")
+OTUtableraw <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "OTU_all")
+OTUtable <- OTUtableraw %>% filter(!grepl("Archaea",OTUID)) %>% filter(!grepl("Eukaryota",OTUID))
+OTU <- OTUtable %>% dplyr::select(-"OTUID")
+ROWNAMES <- OTU$FeatureID 
+OTU = OTU[,mixedsort(colnames(OTU))]
+OTU <- OTU %>% select(-c(P1:P48))#Remove shoots for ordination
+OTU <- OTU %>% select(-S21)#did not amplify, remove
+row.names(OTU) <- OTU$FeatureID 
+OTU <- OTU %>% select(-FeatureID)
+OTU[is.na(OTU)] <- 0
+OTU <- OTU %>% as.matrix()
+row.names(OTU) <- ROWNAMES
+
+Taxonomy <- OTUtable %>% 
+  dplyr::select("OTUID")
+
+Taxonomy <- Taxonomy %>%
+  separate("OTUID",into=c("Domain","Phylum","Class","Order","Family","Genus","Species"),sep=";")
+
+TAX <- Taxonomy %>% as.data.frame() %>% 
+  mutate(Domain=gsub("D_0__","",Domain)) %>% 
+  mutate(Phylum=gsub("D_1__","",Phylum)) %>% 
+  mutate(Class=gsub("D_2__","",Class)) %>% 
+  mutate(Order=gsub("D_3__","",Order)) %>% 
+  mutate(Family=gsub("D_4__","",Family)) %>% 
+  mutate(Genus=gsub("D_5__","",Genus)) %>% 
+  mutate(Species=gsub("D_6__","",Species)) %>% 
+  as.matrix() %>% as.data.frame()
+
+TAX[is.na(TAX)] <- NA
+TAX <- apply(TAX, 2, function(x) gsub("^$|^ $", NA, x))
+TAX <- TAX %>% as.matrix()
+row.names(TAX) <- ROWNAMES
+
+map <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "ENV")
+SAMPLEIDROWNAMES <- map$SampleID
+map <- map %>% as.matrix() %>% as.data.frame()
+row.names(map) <- SAMPLEIDROWNAMES
+ROANAMESLISTSAMPLESID <- row.names(map)
+
+OTU=otu_table(OTU,taxa_are_rows = TRUE)
+rownames(TAX) <- row.names(OTU)
+TAX=tax_table(TAX)
+MAP <-  sample_data(map)
+physeq = merge_phyloseq(OTU, TAX, MAP)
+Tree=rtree(ntaxa(physeq),rooted=TRUE,tip.label = taxa_names(physeq))
+
+physeq = phyloseq(OTU, TAX, MAP,Tree)
+
+```
+
+#beta diversity-weighted unifrac distance
+```{r}
+theme_set(theme_bw())
+physeq.ord_unifrac = ordinate(physeq, "PCoA", "unifrac", weighted=TRUE)
+p1 <- plot_ordination(physeq, physeq.ord_unifrac, type="SampleID", color="Antibiotics", shape="Compartment") 
+print(p1)
+p1+geom_point(size=5, alpha=0.75)+labs(x="PCoA1 [34.9%]", y="PCoA2 [21.4%]")+ggtitle("PCoA on Weighted Unifrac Distance")+theme(plot.title = element_text(hjust = 0.5))+theme(legend.position="right",axis.text=element_text(size=16),axis.title=element_text(size=16),plot.title = element_text(size=22, hjust=0.5),text = element_text(size = 16))+scale_color_manual(breaks = c("NO", "YES"),
+                        values=c("blue", "red"))
+
+#slightly different variation explained in first two axes from 2021 validation and 2020 run. Does not influence results
+#p value report from Qiime2 run
+```
+#Beta diversity colored on dates - soil samples
+#Figure S3, right panel
+```{r}
+theme_set(theme_bw())
+physeq.ord_unifrac = ordinate(physeq, "PCoA", "unifrac", weighted=TRUE)
+p2 <- plot_ordination(physeq, physeq.ord_unifrac, type="SampleID", color="Time", shape="Compartment") 
+print(p2)
+p2+geom_point(size=5, alpha=0.75)+labs(x="PCoA1 [34.9%]", y="PCoA2 [22.3%]")+ggtitle("PCoA on Weighted Unifrac Distance")+theme(plot.title = element_text(hjust = 0.5))+theme(legend.position="right",axis.text=element_text(size=16),axis.title=element_text(size=16),plot.title = element_text(size=22, hjust=0.5),text = element_text(size = 16))+scale_fill_brewer(palette = "jco")
+#slightly different variation explained in first two axes from 2021 validation and 2020 run. Does not influence results
+#p value report from Qiime2 run
+
+```
