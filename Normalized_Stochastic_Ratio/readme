@@ -1,7 +1,7 @@
 This is the calculation of normalized stochastic ratio (NST)
 This is the graphics of normalized stochastic ratio
 Calculation - STOTEN_NST.R
-Rerun and validated: 02/17/2021
+Reproducible results validated: 02/17/2021
 runtime: 20 minutes
 Input file: OTU_load.csv & Treatment.csv
 #NST requires special input data format, therefore, we reformatted OTU table.
