@@ -2,13 +2,19 @@ This is the raw data processing of .fastq 16S rRNA amplicon sequencing results
 Need the following to run batch
 Need some sort of Supercomputing capacity (More memory requirement than local computer)
 
+Preprocessing step: RUN QC using trimmomatic and test results using fastqc command.
+
 1. qiime2-xxx.batch (replace xxx with each compartment because average sequencing depth for alpha diversity is different)
 2. manifest
 3. sampledata.tsv
 
+
+
 This pipeline was run in 11/21/2019. 
 The version is a little different to today (02/18/2021), please contact me if you would like to get the closest run I did for another study with Qiime2 newer version and newer classifier
 I kept this as raw input file for all my analyses. 
+
 OTU table output is the same for all compartment batches, the only differences are the diversity (alpha and beta diversity).
 I gave an example of soil samples in this upload, you can always change the sampledata and manifest files and run other compartment batches
 
+This pipelien was run at Michigan State University High Performance Computing Center
