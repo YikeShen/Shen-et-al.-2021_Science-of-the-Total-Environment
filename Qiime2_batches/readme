@@ -2,7 +2,7 @@ This is the raw data processing of .fastq 16S rRNA amplicon sequencing results
 Need the following to run batch
 Need some sort of Supercomputing capacity (More memory requirement than local computer)
 
-Preprocessing step: RUN QC using trimmomatic and test results using fastqc command.
+Preprocessing step: RUN QC(QC_trim.bash) using trimmomatic and test results using fastqc command.
 
 1. qiime2-xxx.batch (replace xxx with each compartment because average sequencing depth for alpha diversity is different)
 2. manifest
