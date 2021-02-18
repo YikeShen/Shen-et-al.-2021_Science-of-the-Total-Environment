@@ -1,0 +1,299 @@
+
+```{r}
+#Install packages
+# install.packages("xlsx")
+# install.packages("plyr")
+# install.packages("scales")
+# install.packages("rJava")
+# install.packages("pheatmap")
+# install.packages("vegan")
+# install.packages("rmarkdown")
+# install.packages("corrplot")
+# install.packages("Hmisc")
+# install.packages("UpSetR")
+# install.packages("devtools")
+# install.packages("labdsv")
+# install.packages("dendextend")
+# install.packages("ggsci")
+# install.packages("ade4")  #Distances, similar to vegan.
+# install.packages("corrplot")
+# install.packages("Hmisc")
+# install.packages("tidyr")
+# install.packages("tidyverse")
+# install.packages('gtools')
+
+```
+
+
+#Set Working Directory
+setwd("/Users/yikeshen/Desktop/Salmonella_Paper")
+rm(list=ls())
+
+
+```{r}
+library("rmarkdown")
+library(tidyr)
+library(tidyverse)
+library(dplyr)
+library(readxl)
+library(ggplot2)
+library(pheatmap) 
+library(vegan)
+library(RColorBrewer)
+library(vegan)
+library(permute)
+library(lattice)
+library(labdsv)
+library(dendextend)
+library("ggsci")
+library(ade4)
+library(phyloseq)
+library("ape")
+library("plyr")
+library(scales)
+library(Hmisc)
+library(corrplot)
+
+library(gtools)
+```
+
+
+##WaferGen Rawdata Preprocessing
+#Antibiotic Resistance Genes data processing
+```{r}
+#Read raw WaferGen Data
+#Only positive control for 16S gene is tested
+FinalARG19 <- read_excel("SalmonellaARGs.xlsx",sheet = "All_Cts")
+
+#Select data columns that will be used in the pipe
+FinalARG19_Tidy <- FinalARG19 %>% 
+  dplyr::select(-'Row Labels',-'Note')
+
+FinalARG19_Tidy <- FinalARG19_Tidy[-2,]
+
+
+#Pull out non numeric Assay column
+Assay<-FinalARG19_Tidy %>% 
+  dplyr::select(Gene,Description,Type)
+
+#Numeric genes
+FinalARG_process<-FinalARG19_Tidy %>% 
+  dplyr::select(-Gene,-Description,-Type)
+
+num_row<-nrow(FinalARG_process)
+num_column<-ncol(FinalARG_process)
+
+#Cutoff Ct=30. ForCt>30, return NA
+for (i in 1:num_row){
+  for (j in 1:num_column){
+    if (is.na.data.frame(FinalARG_process[i,j])[1]){
+      next
+    }
+    if (FinalARG_process[i,j] > 30){
+      FinalARG_process[i,j] <- NA
+    }
+  }
+}
+
+FinalARG_process <- FinalARG_process[,-c(1:6)]
+FinalARG_process <- FinalARG_process %>% dplyr::select(-(S49:S63))#remove the nematode samples
+FinalARG_process = FinalARG_process[,mixedsort(colnames(FinalARG_process))]
+
+num_row1<-nrow(FinalARG_process)
+num_column1<-ncol(FinalARG_process)
+
+#If 2 in 3 WaferGen triplicates is NA, all of them is NA
+for (i in 1:num_row1){
+  for (j in 1:(num_column1/3)){
+    Process_vector<-FinalARG_process[i, c(j*3-2,j*3-1,j*3)]
+    if (sum(is.na.data.frame(Process_vector)) ==2){
+      FinalARG_process[i, c(j*3-2,j*3-1,j*3)] <- NA
+    }    
+  }
+}
+
+
+FinalARG_process1 <- cbind(Assay,FinalARG_process)
+#Filter rows with all NAs
+FinalARG_process_filtered <- FinalARG_process1[
+  rowSums(is.na.data.frame(FinalARG_process1)) < 72, 
+  ]
+
+Assay_filtered<-FinalARG_process_filtered %>% 
+  dplyr::select(Gene,Description,Type)
+
+FinalARG_process_filtered <- FinalARG_process_filtered[,-1]
+dataframeAVESTDCOPIESRA <- FinalARG_process_filtered
+num_row2<-nrow(dataframeAVESTDCOPIESRA)
+num_column2<-ncol(dataframeAVESTDCOPIESRA)
+
+#Average and Standard deviation of Ct
+Average_df<-data.frame(matrix(0,nrow=19,ncol=24))
+std_df<-data.frame(matrix(0,nrow=19,ncol=24))
+
+for (i in 1:num_row2){
+  for (j in 1:((num_column2)/3)){
+    Process_vector<-as.numeric(unlist(dataframeAVESTDCOPIESRA[i, c(j*3-2,j*3-1,j*3)]))
+    
+    if (sum(is.na.data.frame(Process_vector)) ==3){
+      Average_df[i,j] = NA
+      std_df[i,j] = NA      
+    }
+    else{
+      average <- mean(na.omit(Process_vector))
+      std_val <- sd(na.omit(Process_vector))
+      Average_df[i,j] = average
+      std_df[i,j] = std_val      
+    }
+  }
+}
+
+#Calculate Estimated Copies using equation 10^((30-average)/3.3333
+estimated_copies<-data.frame(matrix(NA,nrow=19,ncol=24))
+
+for (i in 1:num_row2){
+  for (j in 1:((num_column2)/3)){
+    if (is.na.data.frame(Average_df[i,j])){
+      next
+    }
+    estimated_copies[i,j] <- (10^((30-Average_df[i,j])/3.3333))
+    }
+}
+
+#Calculate Relative Abundance normalized to 16s rRNA gene
+relative_abundance<-data.frame(matrix(NA,nrow=19,ncol=24))
+for (i in 1:num_row2){
+    relative_abundance[i,] = estimated_copies[i,]/estimated_copies[1,]
+}
+
+
+columnnameslabel <- c("D25-Shoot-CK","D30-Shoot-CK","D35-Shoot-CK","D25-Shoot-Anti","D30-Shoot-Anti","D35-Shoot-Anti","D25-Root-CK","D30-Root-CK","D35-Root-CK","D25-Root-Anti","D30-Root-Anti","D35-Root-Anti","D25-Soil-CK","D30-Soil-CK","D35-Soil-CK","D25-Soil-Anti","D30-Soil-Anti","D35-Soil-Anti","D25-Rhizo-CK","D30-Rhizo-CK","D35-Rhizo-CK","D25-Rhizo-Anti","D30-Rhizo-Anti","D35-Rhizo-Anti")
+
+#Add colnames to calculated dataframe
+colnames(Average_df) <- columnnameslabel
+colnames(std_df) <- columnnameslabel
+colnames(estimated_copies)<- columnnameslabel
+colnames(relative_abundance) <- columnnameslabel
+row.names(Assay_filtered) <- seq(from =1, to =19)
+
+Ct_downstream <- cbind(Assay_filtered, Average_df)
+std_downstream <- cbind(Assay_filtered, std_df)
+estimatedcopies_downstream <- cbind(Assay_filtered,estimated_copies)
+relativeabundance_downstream <- cbind(Assay_filtered,relative_abundance)
+Output_table_FinalAssay_Gene <- relativeabundance_downstream[,c(1:3)]
+#write.csv(Output_table_FinalAssay_Gene,"Output_table_FinalAssay_Gene.csv")
+Output_table_FinalAssay_Gene[7,3] <-"MGE"
+Output_table_FinalAssay_Gene[11:14,3] <- "MGE"
+Output_table_FinalAssay_Gene[19,3] <- "MGE"
+
+```
+~~~
+
+#Figure 5, Heatmap based on Relative Abundance of ARGs and MGEs
+```{r}
+relative_abundance_heatmap <- relativeabundance_downstream[-1,]
+relative_abundance_heatmap[6,3] <- "MGE"
+relative_abundance_heatmap[10:13,3] <- "MGE"
+relative_abundance_heatmap[18,3] <- "MGE"
+relative_abundance_heatmap <- relative_abundance_heatmap %>% arrange(Type)
+
+Assay_reordered <- relative_abundance_heatmap[,c(1:3)]
+row.names(relative_abundance_heatmap) <-relative_abundance_heatmap$Gene 
+
+relative_abundance_heatmap <- relative_abundance_heatmap[,-c(1:3)] %>% log2() 
+#Force dataframe to be numeric
+relative_abundance_heatmap <- data.matrix(relative_abundance_heatmap, rownames.force = NA)
+#Color break
+breaklists <- seq(min(relative_abundance_heatmap,na.rm = T), max(relative_abundance_heatmap,na.rm = T), by=0.7)
+
+NEWNAMESHEATMAP <- lapply(rownames(relative_abundance_heatmap),function(x) bquote(italic(.(x))))
+
+rownames(relative_abundance_heatmap) <- NEWNAMESHEATMAP
+
+RAheatmap <- pheatmap(relative_abundance_heatmap,
+              #border_color = NA,
+              cluster_rows = F,
+              cluster_cols = F,
+              fontsize = 12,
+              fontsize_row = 12,
+              cellwidth = 20,
+              cellheight= 20,
+              na_col = "white",
+              color = colorRampPalette(rev(brewer.pal(n = 11,
+                                                      name = "RdYlBu")))(length(breaklists)),
+              breaks = breaklists,
+              main="ARGs or MGEs/16S rRNA",
+              labels_row = as.expression(NEWNAMESHEATMAP))
+#RAheatmap
+save_pheatmap_png <- function(x, filename, width=10000, height=10000, res = 1000) {
+  png(filename, width = width, height = height, res = res)
+  grid::grid.newpage()
+  grid::grid.draw(x$gtable)
+  dev.off()
+}
+
+save_pheatmap_png(RAheatmap,"ARGheatmap.png")
+```
+
+
+#Targeted Resistance class Antibiotic resistance
+#Table S3: Sum of relative abundance in each ARGs classes
+```{r}
+#Sum of relative abundance
+library(scales)
+TargetAntibiotics <- Output_table_FinalAssay_Gene$Type %>% 
+  as.matrix()
+
+SumTargetAntibiotics <- cbind(TargetAntibiotics,relative_abundance)
+  
+SumTargetAntibiotics <- SumTargetAntibiotics %>% 
+  mutate(TargetAntibiotics=factor(TargetAntibiotics)) %>% 
+  as.tibble() %>% 
+  arrange(TargetAntibiotics)
+
+SumTargetAntibiotics <- SumTargetAntibiotics %>% as.data.frame()
+SumTargetAntibiotics[is.na(SumTargetAntibiotics)] <- 0
+
+SumTargetAntibiotics <- SumTargetAntibiotics[-19,] 
+SumTargetAntibiotics <- data.frame(apply(SumTargetAntibiotics, 2, function(x) as.numeric(as.character(x))))
+SumTargetAntibiotics <- SumTargetAntibiotics %>% as.matrix()
+
+
+Aminoglycoside <- SumTargetAntibiotics[1,-1] %>% 
+  as.matrix()
+
+BetaLactam <- colSums(SumTargetAntibiotics[2:5,-1]) %>% 
+  as.matrix()
+
+Fluoroquinolone <- SumTargetAntibiotics[6,-1] %>% 
+  as.matrix()
+
+MDR <- colSums(SumTargetAntibiotics[(7:9),-1]) %>% 
+  as.matrix()
+
+MGE <- colSums(SumTargetAntibiotics[(10:15),-1]) %>% 
+  as.matrix()
+
+MLSB <- SumTargetAntibiotics[16,-1] %>% 
+  as.matrix()
+
+Sulfonamide <- SumTargetAntibiotics[17,-1] %>% 
+  as.matrix()
+
+Tetracycline <- SumTargetAntibiotics[18,-1] %>% 
+  as.matrix()
+
+
+colnamesRA_TAR_ANTI <- c("Aminoglycoside","BetaLactam","Fluoroquinolone","MDR","MGE","MLSB","Sulfonamide","Tetracycline") %>% as.matrix()
+
+TargetAntibiotics_new <- cbind(Aminoglycoside,BetaLactam,Fluoroquinolone,MDR,MGE,MLSB,Sulfonamide,Tetracycline) %>% as.matrix() %>% t()
+
+rownames(TargetAntibiotics_new) <- colnamesRA_TAR_ANTI
+colnames(TargetAntibiotics_new) <- columnnameslabel
+TargetAntibiotics_new[TargetAntibiotics_new == 0.000000e+00]<-NA
+
+sumrelativeabundanceoutputtable <- log2(TargetAntibiotics_new) %>% t()
+sumrelativeabundanceoutputtable <- sumrelativeabundanceoutputtable %>% round(1)
+write.csv(sumrelativeabundanceoutputtable,file = "sumrelativeabundanceoutputtable.csv")
+
+```
