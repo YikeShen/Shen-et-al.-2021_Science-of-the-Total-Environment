@@ -1,0 +1,28 @@
+#Install and load following packages before start running all my code
+install.packages("PACKAGENAMEBELOW")
+#Some pacakges requires bioconda to install
+
+
+library("rmarkdown")
+library(tidyr)
+library(tidyverse)
+library(dplyr)
+library(readxl)
+library(ggplot2)
+library(pheatmap) 
+library(vegan)
+library(RColorBrewer)
+library(permute)
+library(lattice)
+library(labdsv)
+library(dendextend)
+library(ade4)
+library(phyloseq)
+library("ape")
+library("plyr")
+library(scales)
+library(Hmisc)
+library(corrplot)
+library(miscTools)
+library(gtools)
+library("ggpubr")
