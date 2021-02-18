@@ -26,7 +26,7 @@
 
 
 #Set Working Directory
-setwd("/Users/yikeshen/Desktop/Salmonella_Paper")
+setwd("PATHTOYOURDIRECTORY")
 rm(list=ls())
 
 
@@ -63,7 +63,7 @@ library(gtools)
 ```{r}
 #Read raw WaferGen Data
 #Only positive control for 16S gene is tested
-FinalARG19 <- read_excel("SalmonellaARGs.xlsx",sheet = "All_Cts")
+FinalARG19 <- read_excel("PATHTOYOURDIRECTORY/STOTEN_ARGs.xlsx",sheet = "All_Cts")
 
 #Select data columns that will be used in the pipe
 FinalARG19_Tidy <- FinalARG19 %>% 
