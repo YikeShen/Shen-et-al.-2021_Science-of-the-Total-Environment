@@ -40,7 +40,7 @@ setwd("/Users/yikeshen/Desktop/Salmonella_Paper")
 ```{r}
 rm(list=ls())
 setwd("YOURPATHTOWORKINGDIRECTORY")
-OTUtableraw <- read_excel("YOURPATHTOWORKINGDIRECTORY/STOTEN_Beta.xlsx", sheet = "OTU_all")
+OTUtableraw <- read_excel("YOURPATHTOWORKINGDIRECTORY/STOTEN_OTU_ENV.xlsx", sheet = "OTU_all")
 OTUtable <- OTUtableraw %>% filter(!grepl("Archaea",OTUID)) %>% filter(!grepl("Eukaryota",OTUID))
 OTU <- OTUtable %>% dplyr::select(-"OTUID")
 ROWNAMES <- OTU$FeatureID 
@@ -75,7 +75,7 @@ TAX <- apply(TAX, 2, function(x) gsub("^$|^ $", NA, x))
 TAX <- TAX %>% as.matrix()
 row.names(TAX) <- ROWNAMES
 
-map <- read_excel("YOURPATHTOWORKINGDIRECTORY/STOTEN_Beta.xlsx", sheet = "ENV")
+map <- read_excel("YOURPATHTOWORKINGDIRECTORY/STOTEN_OTU_ENV.xlsx", sheet = "ENV")
 SAMPLEIDROWNAMES <- map$SampleID
 map <- map %>% as.matrix() %>% as.data.frame()
 row.names(map) <- SAMPLEIDROWNAMES
