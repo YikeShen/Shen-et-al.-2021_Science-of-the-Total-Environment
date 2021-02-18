@@ -7,5 +7,6 @@ Input file:
 2. NST_group_compartment.csv (Figure 4 calculation)
 3. NSTDetailgroup.csv (Figure S4 calculation)
 4. Yike.bray.NST.boot.summary_compartment.csv (Figure 4 inputsheet)
-4. Yike.bray.NST.boot.summary_allgroups.csv (Figure S4 inputsheet)
+5. Yike.bray.NST.boot.summary_allgroups.csv (Figure S4 inputsheet)
 #NST requires special input data format, therefore, we reformatted OTU table.
+Please contact me for RAW NST output .rda 
