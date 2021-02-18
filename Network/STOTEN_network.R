@@ -3,10 +3,10 @@
 # Figure 6 used this R output files and input into Gephi for graphics
 
 rm(list=ls())
-setwd("/Users/yikeshen/Desktop/Salmonella_Paper")
+setwd("YOURPATHTOWORKINGDIRECTORY")
 
 #Bacterial Community antibiotics
-OTUtableraw <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "OTU_all")
+OTUtableraw <- read_excel("YOURPATHTOWORKINGDIRECTORY/STOTEN_OTU_ENV.xlsx", sheet = "OTU_all")
 OTUtable <- OTUtableraw %>% filter(!grepl("Archaea",OTUID)) %>% filter(!grepl("Eukaryota",OTUID))
 OTU <- OTUtable %>% dplyr::select(-"OTUID")
 ROWNAMES <- OTU$FeatureID 
@@ -21,7 +21,7 @@ OTU <- OTU %>% as.matrix()
 row.names(OTU) <- ROWNAMES
 
 
-map <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "ENV")
+map <- read_excel("YOURPATHTOWORKINGDIRECTORY/STOTEN_OTU_ENV.xlsx", sheet = "ENV")
 map <- map[!grepl("NO", map$Antibiotics),] %>% as.data.frame()
 map <- map[-33,]#didn't amplifyS21
 row.names(map) <- map$SampleID
@@ -91,7 +91,7 @@ glomTable3[indx] <- lapply(glomTable3[indx], function(x) as.numeric(as.character
 glomTable3[glomTable3 == 0.000000e+00]<-NA
 
 ### Antibiotics ##
-Antibioticsraw <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "ENV")
+Antibioticsraw <- read_excel("YOURPATHTOWORKINGDIRECTORY/STOTEN_OTU_ENV.xlsx", sheet = "ENV")
 rownames(Antibioticsraw) <- Antibioticsraw$SampleID
 Antibioticsraw <- Antibioticsraw %>% t() %>% as.data.frame() %>% 
   select(-c(P1:P12),-c(P25:P36),-c(S1:S12),-c(S25:S36)) %>% 
@@ -103,7 +103,7 @@ Antibioticsraw <- Antibioticsraw[,-c(1:4)] %>% select(-Cephalexin)
 ## Antibiotic resistance genes ##
 #Read raw WaferGen Data
 #Only positive control for 16S gene is tested
-FinalARG19 <- read_excel("SalmonellaARGs.xlsx",sheet = "All_Cts")
+FinalARG19 <- read_excel("YOURPATHTOWORKINGDIRECTORY/SalmonellaARGs.xlsx",sheet = "All_Cts")
 
 #Select data columns that will be used in the pipe
 FinalARG19_Tidy <- FinalARG19 %>% 
@@ -243,7 +243,7 @@ write.table(CORRELATION1, "CORRELATION1.txt", sep="\t")
 rm(list=ls())
 
 #Bacterial Community wihtout antibiotics
-OTUtableraw <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "OTU_all")
+OTUtableraw <- read_excel("YOURPATHTOWORKINGDIRECTORY/STOTEN_OTU_ENV.xlsx", sheet = "OTU_all")
 OTUtable <- OTUtableraw %>% filter(!grepl("Archaea",OTUID)) %>% filter(!grepl("Eukaryota",OTUID))
 OTU <- OTUtable %>% dplyr::select(-"OTUID")
 ROWNAMES <- OTU$FeatureID 
@@ -326,7 +326,7 @@ glomTable3 <- glomTable3[,-1]
 #Antibiotic resistance genes
 #Read raw WaferGen Data
 #Only positive control for 16S gene is tested
-FinalARG19 <- read_excel("SalmonellaARGs.xlsx",sheet = "All_Cts")
+FinalARG19 <- read_excel("YOURPATHTOWORKINGDIRECTORY/SalmonellaARGs.xlsx",sheet = "All_Cts")
 
 #Select data columns that will be used in the pipe
 FinalARG19_Tidy <- FinalARG19 %>% 
