@@ -1,0 +1,90 @@
+#!/bin/bash
+#SBATCH --time=30:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=70G
+#SBATCH --job-name=qiime2
+
+# Set the number of OpenMP threads
+export OMP_NUM_THREADS=2
+
+#Set working directory!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+cd /mnt/home/shenyike/SalmonellaProjectsoil
+
+#Activate qiime2
+source activate qiime2-2019.10
+
+#Transform data format
+
+qiime tools import --type 'SampleData[PairedEndSequencesWithQuality]' --input-path manifest --output-path demux.qza --input-format PairedEndFastqManifestPhred33
+qiime demux summarize   --i-data demux.qza   --o-visualization demux.qzv
+
+#Denoise and Generate Feature Table(DADA2)
+qiime dada2 denoise-single --i-demultiplexed-seqs demux.qza --o-table table.qza --o-representative-sequences rep-seqs.qza --p-trim-left 0 --p-trunc-len 0 --o-denoising-stats stats-dada2.qza
+qiime metadata tabulate --m-input-file stats-dada2.qza --o-visualization stats-dada2.qzv
+qiime feature-table summarize   --i-table table.qza   --o-visualization table.qzv   --m-sample-metadata-file sampledata.tsv
+qiime feature-table tabulate-seqs   --i-data rep-seqs.qza   --o-visualization rep-seqs.qzv
+
+#Classification
+wget -O "silva-132-99-515-806-nb-classifier.qza" https://data.qiime2.org/2019.10/common/silva-132-99-515-806-nb-classifier.qza
+qiime feature-classifier classify-sklearn --i-classifier silva-132-99-515-806-nb-classifier.qza --i-reads rep-seqs.qza --o-classification taxonomy.qza
+qiime metadata tabulate --m-input-file taxonomy.qza --o-visualization taxonomy.qzv
+
+#Build Phylogenetic Tree
+qiime phylogeny align-to-tree-mafft-fasttree --i-sequences rep-seqs.qza --o-alignment aligned-rep-seqs.qza --o-masked-alignment masked-aligned-rep-seqs.qza --o-tree unrooted-tree.qza --o-rooted-tree rooted-tree.qza
+
+#remove choloroplast and mitochondria
+qiime taxa filter-table   --i-table table.qza   --i-taxonomy taxonomy.qza   --p-include D_1__  --p-exclude Mitochondria,Chloroplast   --o-filtered-table table-filtered.qza
+
+
+#qiime taxa filter-table --i-table table.qza --i-taxonomy taxonomy.qza --p-mode exact --p-exclude 'D_0__Bacteria;D_1__Cyanobacteria;D_2__Oxyphotobacteria;D_3__Chloroplast' --o-filtered-table table-filtered2.qza
+#qiime taxa filter-table --i-table table-filtered2.qza --i-taxonomy taxonomy.qza --p-mode exact --p-exclude 'D_0__Bacteria;D_1__Proteobacteria;D_2__Alphaproteobacteria;D_3__Rickettsiales;D_4__Mitochondria' --o-filtered-table table-filtered.qza
+
+#To have the same length, this can be used in the last step to have OTU table assign taxonomy!
+#qiime taxa collapse --i-table table-filtered.qza --i-taxonomy taxonomy.qza --p-level 3 --o-collapsed-table table-filtered.qza
+
+#Diversity, Set sampling depth!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+qiime diversity core-metrics-phylogenetic --i-phylogeny rooted-tree.qza --i-table table-filtered.qza --p-sampling-depth 30000 --m-metadata-file sampledata.tsv --output-dir core-metrics-results
+
+#Rarefraction, Set sampling depth!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+qiime diversity alpha-rarefaction --i-table table-filtered.qza --i-phylogeny rooted-tree.qza --p-max-depth 30000 --m-metadata-file sampledata.tsv --o-visualization alpha-rarefaction.qzv
+
+#Significance test of Diversity
+cd core-metrics-results
+#Alpha
+mkdir alpha-sig
+for i in faith_pd_vector.qza evenness_vector.qza observed_otus_vector.qza shannon_vector.qza; do qiime diversity alpha-group-significance --i-alpha-diversity $i --m-metadata-file ../sampledata.tsv --o-visualization alpha-sig/"$i"-sig.qzv; done
+#Beta,Set Group!!!
+mkdir beta-sig
+#Change  --m-metadata-column!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+for i in bray_curtis_distance_matrix.qza jaccard_distance_matrix.qza weighted_unifrac_distance_matrix.qza unweighted_unifrac_distance_matrix.qza; do qiime diversity beta-group-significance --i-distance-matrix $i --m-metadata-file ../sampledata.tsv --m-metadata-column Time --o-visualization beta-sig/"$i"-sig.qzv --p-pairwise; done
+#changed to two groups!!!!!!!!!!!!!!!!-yike
+mkdir beta-sig2
+for i in bray_curtis_distance_matrix.qza jaccard_distance_matrix.qza weighted_unifrac_distance_matrix.qza unweighted_unifrac_distance_matrix.qza; do qiime diversity beta-group-significance --i-distance-matrix $i --m-metadata-file ../sampledata.tsv --m-metadata-column Antibiotics --o-visualization beta-sig2/"$i"-sig.qzv --p-pairwise; done
+
+#changed to two groups!!!!!!!!!!!!!!!!-yike
+mkdir beta-sig3
+for i in bray_curtis_distance_matrix.qza jaccard_distance_matrix.qza weighted_unifrac_distance_matrix.qza unweighted_unifrac_distance_matrix.qza; do qiime diversity beta-group-significance --i-distance-matrix $i --m-metadata-file ../sampledata.tsv --m-metadata-column Compartment --o-visualization beta-sig3/"$i"-sig.qzv --p-pairwise; done
+
+#barplot
+cd ..
+qiime taxa barplot --i-table table-filtered.qza --i-taxonomy taxonomy.qza --m-metadata-file sampledata.tsv --o-visualization taxa-bar-plots.qzv
+
+qiime taxa collapse --i-table table-filtered.qza --i-taxonomy taxonomy.qza --p-level 7 --o-collapsed-table table-filtered_collapse.qza
+
+
+#Export File
+qiime tools export --input-path table-filtered_collapse.qza --output-path exported
+qiime tools export --input-path taxonomy.qza --output-path exported
+qiime tools export --input-path unrooted-tree.qza --output-path exported
+biom convert -i exported/feature-table.biom -o exported/otu_table.txt --table-type="OTU table" --to-tsv
+
+#Clean and Collect
+mkdir collect
+mv core-metrics-results/alpha-sig core-metrics-results/beta-sig core-metrics-results/beta-sig2 core-metrics-results/beta-sig3 exported collect/
+mv *.qzv collect/
+mkdir middleFiles
+mv table-l*.qza comp-table-l*.qza comp-table.qza middleFiles
+#rm *qza
+
+scontrol show job $SLURM_JOB_ID
