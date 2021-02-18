@@ -1,7 +1,11 @@
-This is the calculation of normalized stochastic ratio (NST)
-This is the graphics of normalized stochastic ratio
+This is the calculation and graphics of normalized stochastic ratio (NST)
 Calculation - STOTEN_NST.R
-Reproducible results validated: 02/17/2021
+Reproducible Figures validated: 02/17/2021
 runtime: 20 minutes
-Input file: OTU_load.csv & Treatment.csv
+Input file: 
+1. OTU_load.csv
+2. NST_group_compartment.csv (Figure 4 calculation)
+3. NSTDetailgroup.csv (Figure S4 calculation)
+4. Yike.bray.NST.boot.summary_compartment.csv (Figure 4 inputsheet)
+4. Yike.bray.NST.boot.summary_allgroups.csv (Figure S4 inputsheet)
 #NST requires special input data format, therefore, we reformatted OTU table.
