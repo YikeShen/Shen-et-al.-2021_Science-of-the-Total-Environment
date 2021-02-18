@@ -4,7 +4,7 @@ rm(list=ls())
 library(ggplot2)
 library(scales)
 
-LEFSE_raw <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "LEFSE")
+LEFSE_raw <- read.csv("CHOOSEYOURFILEPATH/LEFSE_raw.csv")#I provided my input LEFSE_raw.csv in the folder
 Taxonomy <- LEFSE_raw %>% as.data.frame() %>% 
   separate(Taxon,into=c("Domain","Phylum","Class","Order","Family","Genus","Species"),sep="([\\.])")
 
