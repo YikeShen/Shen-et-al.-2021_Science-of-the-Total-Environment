@@ -3,11 +3,11 @@
 rm(list=ls())
 library(ggplot2)
 
-setwd("/Users/yikeshen/Desktop/Salmonella_Paper")
+setwd("YOUR_WORKING_DIRECTORY")
 
 
 ###########Figure 2############
-alpha_raw <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "AlphaDiversity")
+alpha_raw <- read.csv("YOUR_WORKING_DIRECTORY/Alpha_raw.csv")
 alpha_raw$Compartment <- factor(x = alpha_raw$Compartment,levels = c("Soil","Rhizosphere","Roots","Shoots"))
 
 my_breaks <- function(x) { if (max(x) <12 ) seq(7, 9,11) else seq(0, 1, 2) }
@@ -39,8 +39,8 @@ ALPHAFIG <- p + geom_text(
 
 #########Figure S2############
 rm(list=ls())#Clean work space
-setwd("/Users/yikeshen/Desktop/Salmonella_Paper")
-alpha_raw <- read_excel("Salmonella_OTU_Silva_Dec.xlsx", sheet = "AlphaDiversity")
+setwd("YOUR_WORKING_DIRECTORY")
+alpha_raw <- read.csv("YOUR_WORKING_DIRECTORY/Alpha_raw.csv")
 
 alpha_raw$Time <- gsub("Day1","Day25",alpha_raw$Time)
 alpha_raw$Time <- gsub("\\<Day2\\>","Day27",alpha_raw$Time)
@@ -93,5 +93,5 @@ p3 <- ggboxplot(alpha_raw_no,x="Time", y="shannon",color="Compartment",palette =
   hjust   = -0.1,
   vjust   = -1)
 #+scale_y_continuous(breaks = scales::pretty_breaks(4), limits = c(7, 10.5)) 
-
+#Figure panels mannually adjusted in publication for axis consistency 
 
