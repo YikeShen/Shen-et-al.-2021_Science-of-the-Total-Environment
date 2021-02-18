@@ -1,0 +1,167 @@
+#title: "STOTEN_NST"
+#This files contains NST calculation and graphics
+#Figure 4
+#Figure S4
+
+#NST calculation
+```{r}
+rm(list=ls())
+#install.packages("NST")
+library(NST)
+library(vegan)
+setwd("/Users/yikeshen/Desktop/Salmonella_Paper/NST")
+
+prefix="Yike" # define output file prefix.
+
+#Please note, the shoots had too few reads to compute NST, thus shoots samples were removed
+
+####Please run this chunk for Figure4 
+#com.file="OTUtable.csv"
+com.file="OTULoad.csv"
+treat.file="NST_group_compartment.csv"
+#####################################
+
+####Please run this chunk for Figure S4
+#com.file="OTULoad.csv"
+#treat.file="NSTDetailgroup.csv"
+
+nworker=4
+rand.time=1000 # set a low number for test. real data should use 1000 times.
+
+# load data
+comm=t(read.csv(com.file,header = TRUE,sep=",",row.names = 1))
+comm <- t(comm)
+#comm <- comm[-c(1:24),]
+treat=read.csv(treat.file,header = TRUE,row.names = 1)
+
+dim(comm)
+dim(treat)
+
+#check match sample ID
+sampc=NST::match.name(rn.list=list(comm=comm,treat=treat))
+comm=sampc$comm
+dim(comm)
+comm=comm[,colSums(comm)>0] # remove OTUs have no read across remained samples.
+dim(comm)
+treat=sampc$treat
+
+prefixi=paste0(prefix,".bray") # file prefix with beta diversity index name. The abundance-weighted Jaccard is named as Ruzicka.
+group=treat[,1,drop=FALSE] # select which column in treatment table will be used
+head(group)
+
+t0=Sys.time()
+
+nst1=tNST(comm=comm, group=group, meta.group=NULL, meta.com=NULL,
+          dist.method="bray", abundance.weighted=TRUE,
+          rand=rand.time, output.rand=TRUE, nworker=nworker,
+          LB=FALSE, null.model="PF", between.group=FALSE,
+          SES=FALSE, RC=FALSE)
+save(nst1,file = paste0(prefixi,".NST.rda"))
+write.csv(nst1$index.grp,file=paste0(prefixi,".NST.summary.csv"))
+(t1=format(Sys.time()-t0)) # count time cost
+
+# Bootstrapping
+t0=Sys.time()
+nstbt=nst.boot(nst.result=nst1, group = group, rand = rand.time, trace = TRUE, 
+               two.tail = FALSE, out.detail = TRUE, between.group = FALSE, 
+               nworker = nworker)
+save(nstbt,file = paste0(prefixi,".NST.boot.rda"))
+write.csv(nstbt$summary,file=paste0(prefixi,".NST.boot.summary.csv"))
+write.csv(nstbt$compare,file=paste0(prefixi,".NST.boot.compare.csv"))
+(t2=format(Sys.time()-t0))
+
+# PERMANOVA
+t0=Sys.time()
+nstpaov=nst.panova(nst.result=nst1, group = group, rand = rand.time, trace = TRUE)
+write.csv(nstpaov,file=paste0(prefixi,".NST.PERMANOVA.csv"))
+(t3=format(Sys.time()-t0))
+
+#Below are other distant matrix
+comm.b=comm
+comm.b[comm.b>0]=1
+samp.ab=rowSums(comm)
+prob.ab=matrix(colSums(comm),nrow=nrow(comm),ncol=ncol(comm),byrow=TRUE)
+comm.rand=ab.assign(comm.b,samp.ab,prob.ab)
+
+beta.g(comm, dist.method="bray", abundance.weighted=TRUE,
+       as.3col=FALSE,out.list=TRUE)
+chaosorensen(comm, dissimilarity=TRUE, to.dist=TRUE)
+chaojaccard(comm, dissimilarity=TRUE, to.dist=TRUE)
+
+# calculate one index
+beta.bray=beta.g(comm=comm,as.3col=TRUE)
+# calculate multiple indexes
+beta.td=beta.g(comm=comm,dist.method=c("bray","jaccard","euclidean",
+                                       "manhattan","binomial","chao","cao"),
+               abundance.weighted = TRUE,out.list=FALSE)
+
+data(beta.limit)
+
+bray=beta.g(comm,dist.method="bray")
+bray.3col=dist.3col(bray)
+
+```
+
+
+
+#Normalized Stochastic Ratio Graphics
+
+#Figure 4: Normalized stochastic ration of baterial community assembly in the bulk soil, rhizosphere soil, and lettuce roo samples with and without antibiotic exposure
+```{r}
+#Compartment
+rm(list=ls())
+library(ggplot2)
+temporalraw <- read.csv("Yike.bray.NST.boot.summary_compartment.csv",header = TRUE,row.names = 1)
+temporalraw <- temporalraw[,4:8]*100
+wrapgroup <- c(rep("Shoots",2),rep("Roots",2),rep("Soil",2),rep("Rhizosphere",2))
+Treatment <- c("Control","Antibiotics","Control","Antibiotics","Control","Antibiotics","Control","Antibiotics")
+temporalraw <- cbind(temporalraw,rownames(temporalraw),wrapgroup,Treatment)
+#Remove shoots for low NST
+temporalraw <- temporalraw[-c(1:2),]
+ROWNAMESNEW <- cbind("Roots_No","Roots_Yes","Soil_No","Soil_Yes","Rhizo_No","Rhizo_Yes")
+rownames(temporalraw) <- ROWNAMESNEW
+
+temporalraw$wrapgroup <- factor(x = temporalraw$wrapgroup,levels = c("Soil","Rhizosphere","Roots"))
+
+pd <- position_dodge(0.1)
+ggplot(temporalraw, aes(x=rownames(temporalraw), ymin=Min, ymax=Max, lower=Quantile25, middle=Median, upper=Quantile75,fill=Treatment))+
+  geom_boxplot(stat='identity')+xlab("Treatment") +
+  ylab("Normalized Stochasticity Ratio (NST) (%)") +
+  ggtitle("Stochasticity Test") +
+  scale_y_continuous(breaks=0:10*10)+                       # Expand y range
+  theme_bw() +scale_fill_manual(breaks = c("Antibiotics", "Control"),values=c("red", "blue"))+
+  theme(legend.position="top",axis.text=element_text(size=16),axis.title=element_text(size=16),
+        plot.title = element_text(size=22, hjust=0.5),text = element_text(size = 16),
+        axis.text.x = element_text(angle = 0))+facet_wrap(~wrapgroup,1,scale="free_x")
+```
+
+
+
+#Figure S4. Normalized stochastic ratio of samples collected on four sampling days
+```{r}
+rm(list=ls())
+library(scales)
+library(ggplot2)
+setwd("/Users/yikeshen/Desktop/Salmonella_Paper/NST")
+temporalraw <- read.csv("Yike.bray.NST.boot.summary_allgroups.csv",header = TRUE,row.names = 1)
+temporalraw <- temporalraw[,4:8]*100
+wrapgroup <- c(rep("Shoots",8),rep("Roots",8),rep("Soil",8),rep("Rhizosphere",8))
+Treatment <- c(rep("Control",4),rep("Antibiotics",4),rep("Control",4),rep("Antibiotics",4),rep("Control",4),
+               rep("Antibiotics",4),rep("Control",4),rep("Antibiotics",4))
+temporalraw <- cbind(temporalraw,rownames(temporalraw),wrapgroup,Treatment)
+temporalraw <- temporalraw[-c(1:8),]
+pd <- position_dodge(0.1)
+temporalraw$wrapgroup <- factor(x = temporalraw$wrapgroup,levels = c("Soil","Rhizosphere","Roots"))
+ggplot(temporalraw, aes(x=rownames(temporalraw), ymin=Min, ymax=Max, lower=Quantile25, middle=Median, upper=Quantile75, fill=Treatment))+
+  geom_boxplot(color="black",stat='identity')+xlab("Harvest Day") +
+  ylab("Normalized Stochasticity Ratio (NST) (%)") +
+  scale_fill_manual(breaks = c("Antibiotics", "Control"),values=c("red", "blue"))+
+  ggtitle("Stochasticity Test") +
+  scale_y_continuous(breaks=0:10*10)+                       # Expand y range
+  theme_bw() +
+  theme(legend.position="top",axis.text=element_text(size=16),axis.title=element_text(size=16),
+        plot.title = element_text(size=22, hjust=0.5),text = element_text(size = 16),
+        axis.text.x = element_text(angle = 90))+facet_wrap(~wrapgroup,1,scales = "free_x")
+
+```
+
