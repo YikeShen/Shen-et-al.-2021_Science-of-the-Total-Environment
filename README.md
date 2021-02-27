@@ -1,4 +1,4 @@
-Shen et al., 2021. Science of the Total Environment. Revision submitted.
+Shen et al., 2021. Science of the Total Environment. Accepted.
 
 Bacterial Community Assembly and Antibiotic Resistance Genes in the Lettuce-Soil System upon Antibiotic Exposure
 
